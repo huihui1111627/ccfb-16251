@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>参数敏感计划缓存实验室</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>商户订单查询 · 参数敏感计划缓存</h1>
+      <p class="subtitle">
+        Parser → Histogram → Cost Optimizer → Executor → Tiered/LRU Plan Cache
+      </p>
+    </div>
+    <div class="top-actions">
+      <label class="merchant-input">
+        商户 ID
+        <input id="merchantId" type="number" min="1" value="1" />
+      </label>
+      <button id="callMainBtn" class="primary">调用订单查询</button>
+      <button id="callAggBtn">调用状态聚合</button>
+      <button id="restartBtn" class="warn">模拟重启</button>
+      <button id="statsBtn">重新采集统计</button>
+      <button id="burstStatsBtn" class="good">该商户爆单后更新统计</button>
+      <button id="refreshBtn">刷新页面数据</button>
+    </div>
+  </header>
+
+  <main id="app">
+    <section class="loading">正在读取基准结果...</section>
+  </main>
+
+  <div id="tooltip" class="tooltip hidden"></div>
+
+  <template id="dashboardTemplate">
+    <section class="kpi-grid" id="kpiGrid"></section>
+
+    <section class="card chart-card">
+      <div class="card-header">
+        <div>
+          <h2>逐次调用耗时轨迹</h2>
+          <p>竖线为重启 / 统计信息更新；可切换代价模型耗时与 Python 执行器实测墙钟。</p>
+        </div>
+        <div class="chart-controls">
+          <label>指标
+            <select id="metricSelect">
+              <option value="predicted_total_ms">端到端模型耗时 (ms)</option>
+              <option value="cost_ms">执行代价 (ms)</option>
+              <option value="total_wall_ms">实测总墙钟 (ms)</option>
+              <option value="exec_wall_ms">实测执行器墙钟 (ms)</option>
+              <option value="optimizer_ms">优化/选档耗时 (ms)</option>
+            </select>
+          </label>
+          <label><input type="checkbox" id="logScale" checked /> 对数轴</label>
+        </div>
+      </div>
+      <canvas id="timelineChart" height="360"></canvas>
+      <div class="legend" id="chartLegend"></div>
+    </section>
+
+    <section class="grid two-col">
+      <section class="card">
+        <div class="card-header"><h2>三种策略的耗时分布</h2></div>
+        <div id="distributionTable"></div>
+      </section>
+      <section class="card">
+        <div class="card-header"><h2>缓存条数与优化开销</h2></div>
+        <div id="cacheCompare"></div>
+      </section>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <h2>每条语句的选择率分档与计划</h2>
+          <p>分档边界来自直方图区间探测和代价交叉点；缓存键是规范化 SQL + 档位。</p>
+        </div>
+      </div>
+      <div id="statementList" class="statement-list"></div>
+    </section>
+
+    <section class="grid two-col">
+      <section class="card">
+        <div class="card-header">
+          <h2>最近调用落在哪个档</h2>
+        </div>
+        <div class="table-wrap recent-wrap">
+          <table id="recentTable">
+            <thead>
+              <tr>
+                <th>#</th><th>语句</th><th>选择率/档位</th><th>计划</th>
+                <th>缓存</th><th class="num">模型 ms</th><th class="num">实测 ms</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>计划缓存 / 淘汰 / 手动干预</h2>
+        </div>
+        <div id="cachePanel"></div>
+      </section>
+    </section>
+
+    <section class="grid two-col">
+      <section class="card">
+        <div class="card-header"><h2>幂律数据与真实比例流量</h2></div>
+        <div id="profilePanel"></div>
+      </section>
+      <section class="card">
+        <div class="card-header"><h2>事件时间线</h2></div>
+        <div id="eventsPanel" class="events"></div>
+      </section>
+    </section>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>
